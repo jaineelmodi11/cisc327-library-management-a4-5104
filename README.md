@@ -1,6 +1,6 @@
 # CISC/CMPE 327 – Library Management System (A2)
 
-![CI](https://github.com/jaineelmodi11/cisc327-library-management-a2-5104/actions/workflows/ci.yml/badge.svg)
+[![CI](https://github.com/jaineelmodi11/cisc327-library-management-a2-5104/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/jaineelmodi11/cisc327-library-management-a2-5104/actions/workflows/ci.yml)
 
 **Repository:** https://github.com/jaineelmodi11/cisc327-library-management-a2-5104
 
