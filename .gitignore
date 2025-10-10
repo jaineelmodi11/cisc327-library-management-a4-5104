@@ -1,5 +1,12 @@
+# venvs
 .venv/
+venv/
+
+# pytest / coverage
+.pytest_cache/
 __pycache__/
-*.pyc
-.coverage
-htmlcov/
+.coverage*
+coverage.xml
+
+# OS/editor junk
+.DS_Store
