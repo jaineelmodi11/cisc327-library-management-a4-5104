@@ -47,3 +47,15 @@ def test_overdue_detection():
     lib.checkout_book(2, 101, today=date(2025, 9, 1))
     over = lib.list_overdue_loans(today=date(2025, 10, 1))
     assert len(over) == 1
+    
+"""
+AI tool: ChatGPT (GPT-5 Thinking)
+Prompt (initial):
+  "Generate pytest test cases for a simple in-memory Library system (users, books, loans) with
+   add_user, add_book, checkout_book, return_book, overdue detection (DEFAULT_LOAN_DAYS=14),
+   and a max active loans per user of 3. Use from services import Library, DEFAULT_LOAN_DAYS,
+   MAX_ACTIVE_LOANS_PER_USER."
+Follow-ups:
+  - "Add tests for edge cases: inactive user, inactive book, removing a book with outstanding loan."
+  - "Use fixed dates for determinism."
+"""
