@@ -35,13 +35,3 @@ pytest --cov=. --cov-report=term
 ## Troubleshooting
 - If `pytest` can’t find modules, ensure you’re running from the repo root and that `pytest.ini` has `pythonpath = .`.
 - If a virtualenv folder shows up in Git, add `.venv/` to `.gitignore`.
-
-Then run:
-
-```bash
-git add README.md
-git commit -m "Fix README code fencing and CI notes"
-git push
-```
-::contentReference[oaicite:0]{index=0}
-
