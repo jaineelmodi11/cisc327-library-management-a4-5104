@@ -3,7 +3,7 @@ from datetime import date, timedelta
 from typing import Dict, List, Optional
 
 DEFAULT_LOAN_DAYS = 14
-MAX_ACTIVE_LOANS_PER_USER = 3  # TODO: change to your A1 spec if different
+MAX_ACTIVE_LOANS_PER_USER = 3  # adjust if your A1 spec differs
 
 @dataclass
 class Book:
@@ -53,8 +53,10 @@ class Library:
             b.total_copies += copies
             b.available_copies += copies
             return b
-        self.books[book_id] = Book(id=book_id, title=title, author=author,
-                                   total_copies=copies, available_copies=copies, is_active=True)
+        self.books[book_id] = Book(
+            id=book_id, title=title, author=author,
+            total_copies=copies, available_copies=copies, is_active=True
+        )
         return self.books[book_id]
 
     def remove_book(self, book_id: int) -> None:
@@ -76,7 +78,7 @@ class Library:
         active_loans = [ln for ln in self.loans if ln.user_id == user_id and ln.returned_on is None]
         if len(active_loans) >= MAX_ACTIVE_LOANS_PER_USER:
             raise ValueError("User loan limit reached")
-        # If your A1 forbids a user borrowing the same book twice concurrently, uncomment:
+        # If your A1 forbids borrowing same book twice concurrently, uncomment:
         # if any(ln for ln in active_loans if ln.book_id == book_id):
         #     raise ValueError("User already has this book")
 
