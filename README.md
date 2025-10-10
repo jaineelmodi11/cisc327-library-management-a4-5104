@@ -6,10 +6,29 @@
 
 ## Project structure
 - `services.py` — core Library business logic (users, books, loans)
+- `a1_compat.py` — A1 function-name compatibility layer delegating to `LibraryService`
 - `tests/` — unit tests (both human-written and AI-generated)
 - `.github/workflows/ci.yml` — GitHub Actions workflow (pytest + coverage)
 - `requirements.txt` — test dependencies
 - `pytest.ini` — pytest configuration
+
+
+## A1 → A2 Mapping
+
+This A2 **continues** my A1 library project. The original A1 function names are preserved via `a1_compat.py`, which delegates to the class-based `LibraryService` used in A2.
+
+| A1 function                   | A2 implementation (services.py)                          |
+|------------------------------|-----------------------------------------------------------|
+| `add_book_to_catalog`        | `add_book` / `register_book`                              |
+| `borrow_book_by_patron`      | `checkout_book` (raises on invalid) / `loan_book` (bool)  |
+| `return_book_by_patron`      | `return_book`                                             |
+| `calculate_late_fee_for_book`| Provided in `a1_compat.py` (simple per-day fee)           |
+| `search_books_in_catalog`    | `search_books`                                            |
+| `get_patron_status_report`   | `list_active_loans` (+ direct `users`/`books` access)     |
+
+> A2 adds due dates (via a `Loan` object), a per-user active-loan cap, and overdue detection.  
+> The `a1_compat.py` module keeps A1-style code working without changes.
+
 
 ## Quick start
 ```bash
