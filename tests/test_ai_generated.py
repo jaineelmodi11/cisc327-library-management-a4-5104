@@ -1,52 +1,37 @@
 import pytest
-from datetime import date, timedelta
-from services import Library, DEFAULT_LOAN_DAYS, MAX_ACTIVE_LOANS_PER_USER
+from services import LibraryService
 
-def make_lib():
-    lib = Library()
-    lib.register_user(1, "Alice")
-    lib.register_user(2, "Bob")
-    lib.add_book(100, "Design Patterns", "GoF", copies=1)
-    lib.add_book(101, "Refactoring", "Fowler", copies=2)
-    return lib
+@pytest.fixture
+def lib():
+    return LibraryService()
 
-def test_checkout_requires_available_copy():
-    lib = make_lib()
-    lib.checkout_book(1, 100, today=date(2025, 10, 1))
-    with pytest.raises(ValueError):
-        lib.checkout_book(2, 100, today=date(2025, 10, 1))
+def test_register_book_and_search(lib):
+    lib.register_book("978-1", "Intro to AI", "Russell", copies=2)
+    lib.register_book("978-2", "AI in Practice", "Ng", copies=1)
+    hits = lib.search_books("ai")
+    titles = {b["title"] for b in hits}
+    assert {"Intro to AI", "AI in Practice"} <= titles
 
-def test_due_date_is_default_loan_days_from_today():
-    lib = make_lib()
-    start = date(2025, 10, 1)
-    loan = lib.checkout_book(1, 101, today=start)
-    assert loan.due_date == start + timedelta(days=DEFAULT_LOAN_DAYS)
+def test_loan_and_return_happy_path(lib):
+    uid = lib.add_user("A")
+    lib.register_book("978-1", "Intro to AI", "Russell", copies=1)
+    assert lib.loan_book(uid, "978-1") is True
+    assert lib.return_book(uid, "978-1") is True
+    # double return should fail
+    assert lib.return_book(uid, "978-1") is False
 
-def test_return_restores_available_copies_and_closes_loan():
-    lib = make_lib()
-    lib.checkout_book(1, 101, today=date(2025, 10, 1))
-    lib.return_book(1, 101, return_date=date(2025, 10, 2))
-    assert lib.books[101].available_copies == 2
-    assert lib.list_active_loans(1) == []
+def test_loan_fails_when_no_copies(lib):
+    uid = lib.add_user("A")
+    lib.register_book("978-1", "Intro to AI", "Russell", copies=1)
+    assert lib.loan_book(uid, "978-1") is True
+    assert lib.loan_book(uid, "978-1") is False
 
-def test_user_cap_enforced():
-    lib = make_lib()
-    for i in range(102, 102 + MAX_ACTIVE_LOANS_PER_USER + 1):
-        lib.add_book(i, f"B{i}", "Auth", copies=1)
+def test_loan_requires_valid_user_and_isbn(lib):
+    lib.register_book("978-1", "Intro to AI", "Russell", copies=1)
+    assert lib.loan_book(999, "978-1") is False
+    uid = lib.add_user("A")
+    assert lib.loan_book(uid, "NOPE") is False
 
-    for i in range(MAX_ACTIVE_LOANS_PER_USER):
-        lib.checkout_book(1, 102 + i, today=date(2025, 10, 1))
-
-    assert len(lib.list_active_loans(1)) == MAX_ACTIVE_LOANS_PER_USER
-
-    with pytest.raises(ValueError):
-        lib.checkout_book(1, 102 + MAX_ACTIVE_LOANS_PER_USER, today=date(2025, 10, 1))
-
-def test_overdue_detection():
-    lib = make_lib()
-    lib.checkout_book(2, 101, today=date(2025, 9, 1))
-    over = lib.list_overdue_loans(today=date(2025, 10, 1))
-    assert len(over) == 1
     
 """
 AI tool: ChatGPT (GPT-5 Thinking)

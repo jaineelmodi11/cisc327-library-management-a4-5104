@@ -3,9 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from collections import defaultdict
 from datetime import date, timedelta
-from typing import Hashable, Dict, List, Tuple, Optional
+from typing import Dict, List, Tuple, Optional, Hashable
 
-# ---- Assignment-friendly constants ----
+# ---- Assignment constants ----
 DEFAULT_LOAN_DAYS = 14
 MAX_ACTIVE_LOANS_PER_USER = 3
 
@@ -19,52 +19,64 @@ class User:
 
 @dataclass
 class Book:
-    book_id: Hashable  # supports int IDs or string ISBNs
+    book_id: Hashable           # supports int IDs or string ISBNs
     title: str
     author: str
-    copies: int
-    available_copies: int
+    copies: int                 # total copies in the catalog
+    available_copies: int       # copies currently on shelf
     is_active: bool = True
+
+    # Alias expected by some tests
+    @property
+    def total_copies(self) -> int:
+        return self.copies
+
+
+@dataclass
+class Loan:
+    user_id: int
+    book_id: Hashable
+    checkout_date: date
+    due_date: date
 
 
 class LibraryService:
     """
-    In-memory library with two compatible APIs:
+    In-memory Library with two compatible APIs:
 
     A) Human-written tests API (IDs are ints; invalid ops raise ValueError):
-       - register_user(user_id, name)  or  register_user(name)
-       - add_user(user_id, name)       or  add_user(name)   (alias)
+       - register_user(user_id, name)  OR register_user(name)
+       - add_user(user_id, name)       OR add_user(name)
        - add_book(book_id, title, author, copies=1)
-       - checkout_book(user_id, book_id, today=...)
-       - return_book(user_id, book_id, return_date=...)
+       - checkout_book(user_id, book_id, today=...) -> Loan
+       - return_book(user_id, book_id, return_date=...) -> bool
        - list_active_loans(user_id) -> list[(book_id, count)]
        - list_overdue_loans(today=...) -> list[(user_id, book_id)]
        - deactivate_user(user_id)
-       - remove_book(book_id)  (only when fully available)
-       - public dicts: users, books (values are User/Book with .is_active/.available_copies)
+       - remove_book(book_id)   (only when fully available)
+       - public: users: Dict[int, User], books: Dict[Hashable, Book]
 
-    B) AI-generated tests API (ISBN strings & boolean results):
+    B) AI-generated tests API (string ISBNs; booleans instead of exceptions):
        - register_book(isbn, title, author, copies=1) -> bool
        - loan_book(user_id, isbn) -> bool
        - return_book(user_id, isbn) -> bool
-       - search_books(query) -> list of dicts
+       - search_books(query) -> list of dicts {isbn,title,author,copies,available}
     """
 
     def __init__(self):
-        # public maps for tests
+        # public maps (tests access these directly)
         self.users: Dict[int, User] = {}
         self.books: Dict[Hashable, Book] = {}
 
-        # internal
         self._next_user_id = 1
-        # (user_id, book_id) -> list[date] (one entry per active copy)
+        # active loans: (user_id, book_id) -> list of loan dates (one per active copy)
         self._loan_dates: Dict[Tuple[int, Hashable], List[date]] = defaultdict(list)
 
     # ---------- Users ----------
     def add_user(self, *args) -> int:
         """
-        add_user(name: str) -> int               # auto-ID
-        add_user(user_id: int, name: str) -> int # explicit ID
+        add_user(name) -> auto-ID
+        add_user(user_id, name) -> explicit ID
         """
         if len(args) == 1:
             name = args[0]
@@ -86,9 +98,8 @@ class LibraryService:
         else:
             raise TypeError("add_user expects (name) or (user_id, name)")
 
-    # Alias expected by some tests
+    # alias expected by some tests
     def register_user(self, *args) -> int:
-        """Compatibility alias; mirrors add_user behavior/signature."""
         return self.add_user(*args)
 
     def get_user(self, user_id: int) -> Optional[User]:
@@ -125,12 +136,11 @@ class LibraryService:
     def get_book(self, book_id: Hashable) -> Optional[Book]:
         return self.books.get(book_id)
 
-    # ---------- Loans (human-API; raises on invalid) ----------
+    # ---------- Loans (human API: raise on invalid; returns Loan) ----------
     def _active_loans_for_user(self, user_id: int) -> int:
         return sum(len(dates) for (uid, _), dates in self._loan_dates.items() if uid == user_id)
 
-    def checkout_book(self, user_id: int, book_id: Hashable, today: Optional[date] = None) -> bool:
-        """Raises ValueError on invalid user/book/inactive/stock/limit; returns True on success."""
+    def checkout_book(self, user_id: int, book_id: Hashable, today: Optional[date] = None) -> Loan:
         today = today or date.today()
         u = self.users.get(user_id)
         if not u or not u.is_active:
@@ -145,7 +155,8 @@ class LibraryService:
 
         b.available_copies -= 1
         self._loan_dates[(user_id, book_id)].append(today)
-        return True
+        due = today + timedelta(days=DEFAULT_LOAN_DAYS)
+        return Loan(user_id=user_id, book_id=book_id, checkout_date=today, due_date=due)
 
     def return_book(self, user_id: int, book_id: Hashable, return_date: Optional[date] = None) -> bool:
         key = (user_id, book_id)
@@ -159,7 +170,7 @@ class LibraryService:
         return True
 
     def list_active_loans(self, user_id: int) -> List[Tuple[Hashable, int]]:
-        """Returns a list of (book_id, count) for current active loans of the user."""
+        """Return [(book_id, count), ...] for user's active loans."""
         out: List[Tuple[Hashable, int]] = []
         for (uid, bid), dates in self._loan_dates.items():
             if uid == user_id and dates:
@@ -167,7 +178,7 @@ class LibraryService:
         return out
 
     def list_overdue_loans(self, today: Optional[date] = None) -> List[Tuple[int, Hashable]]:
-        """List of (user_id, book_id) pairs with any copy overdue."""
+        """Return [(user_id, book_id), ...] where any copy is overdue."""
         today = today or date.today()
         overdue: List[Tuple[int, Hashable]] = []
         for (uid, bid), dates in self._loan_dates.items():
@@ -179,11 +190,7 @@ class LibraryService:
 
     # ---------- Search ----------
     def search_books(self, query: str):
-        """
-        Case-insensitive substring on title/author.
-        Returns list of dicts compatible with AI tests:
-        { "isbn": <book_id as str>, "title": ..., "author": ..., "copies": int, "available": int }
-        """
+        """Case-insensitive substring on title/author; returns list of dicts (AI tests format)."""
         q = (str(query) if query is not None else "").lower().strip()
         results = []
         for b in self.books.values():
@@ -192,7 +199,7 @@ class LibraryService:
             if q in b.title.lower() or q in b.author.lower():
                 results.append(
                     {
-                        "isbn": str(b.book_id),
+                        "isbn": str(b.book_id),   # keep key name 'isbn' for AI tests
                         "title": b.title,
                         "author": b.author,
                         "copies": b.copies,
@@ -201,16 +208,11 @@ class LibraryService:
                 )
         return results
 
-    # ---------- Compatibility with AI tests ----------
+    # ---------- AI tests compatibility (boolean returns) ----------
     def register_book(self, isbn: str, title: str, author: str, copies: int = 1) -> bool:
-        # route to add_book using string key
         return self.add_book(isbn, title, author, copies)
 
     def loan_book(self, user_id: int, isbn: Hashable) -> bool:
-        """
-        AI tests expect boolean returns instead of exceptions.
-        Return False on invalid user/book/no stock/limit.
-        """
         u = self.users.get(user_id)
         b = self.books.get(isbn)
         if not u or not b or not b.is_active or b.available_copies <= 0:
@@ -222,5 +224,5 @@ class LibraryService:
         return True
 
 
-# Alias expected by human tests
+# Alias used by some tests
 Library = LibraryService
