@@ -41,6 +41,6 @@ Prompt (initial):
    and a max active loans per user of 3. Use from services import Library, DEFAULT_LOAN_DAYS,
    MAX_ACTIVE_LOANS_PER_USER."
 Follow-ups:
-  - "Add tests for edge cases: inactive user, inactive book, removing a book with outstanding loan."
+  - "Add tests for edge cases, inactive user, inactive book, removing a book with outstanding loan."
   - "Use fixed dates for determinism."
 """
