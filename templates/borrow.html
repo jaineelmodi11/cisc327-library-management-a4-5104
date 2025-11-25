@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Borrow Book</title>
+  </head>
+  <body>
+    <h1>Borrow a Book</h1>
+
+    <!-- Flash messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <ul id="flash-messages">
+          {% for category, msg in messages %}
+            <li class="{{ category }}">{{ msg }}</li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+    {% endwith %}
+
+    {% if books %}
+      <form id="borrow-form" method="post">
+        <div>
+          <label for="book_id">Book:</label>
+          <select id="book_id" name="book_id" required>
+            {% for book in books %}
+              <option value="{{ book['id'] }}">{{ book['title'] }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div>
+          <label for="patron_id">Patron ID:</label>
+          <input id="patron_id" name="patron_id" type="text" required />
+        </div>
+
+        <button id="submit-borrow" type="submit">Borrow</button>
+      </form>
+    {% else %}
+      <p id="no-books-message">No books with available copies to borrow.</p>
+    {% endif %}
+
+    <p>
+      <a href="{{ url_for('list_books') }}">Back to catalog</a>
+    </p>
+  </body>
+</html>

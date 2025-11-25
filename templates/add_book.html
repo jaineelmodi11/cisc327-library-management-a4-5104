@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Add Book</title>
+  </head>
+  <body>
+    <h1>Add a New Book</h1>
+
+    <!-- Flash messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <ul id="flash-messages">
+          {% for category, msg in messages %}
+            <li class="{{ category }}">{{ msg }}</li>
+          {% endfor %}
+        </ul>
+      {% endif %}
+    {% endwith %}
+
+    <form id="add-book-form" method="post">
+      <div>
+        <label for="title">Title:</label>
+        <input id="title" name="title" type="text" required />
+      </div>
+      <div>
+        <label for="author">Author:</label>
+        <input id="author" name="author" type="text" required />
+      </div>
+      <div>
+        <label for="isbn">ISBN:</label>
+        <input id="isbn" name="isbn" type="text" required />
+      </div>
+      <div>
+        <label for="copies">Copies:</label>
+        <input id="copies" name="copies" type="number" value="5" min="1" required />
+      </div>
+
+      <button id="submit-add-book" type="submit">Add Book</button>
+    </form>
+
+    <p>
+      <a href="{{ url_for('list_books') }}">Back to catalog</a>
+    </p>
+  </body>
+</html>
