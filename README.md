@@ -1,56 +1,305 @@
-# CISC/CMPE 327 – Library Management System (A2)
+# CISC/CMPE-327 – Library Management System (Assignment 4)
 
-[![CI](https://github.com/jaineelmodi11/cisc327-library-management-a2-5104/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/jaineelmodi11/cisc327-library-management-a2-5104/actions/workflows/ci.yml)
+This repository contains my **Assignment 4 – End-to-End Testing and Application Containerization** for CISC/CMPE-327 (Software Quality Assurance).
 
-**Repository:** https://github.com/jaineelmodi11/cisc327-library-management-a2-5104
+It extends the Library Management System from previous labs/assignments by:
 
-## Project structure
-- `services.py` — core Library business logic (users, books, loans)
-- `a1_compat.py` — A1 function-name compatibility layer delegating to `LibraryService`
-- `tests/` — unit tests (both human-written and AI-generated)
-- `.github/workflows/ci.yml` — GitHub Actions workflow (pytest + coverage)
-- `requirements.txt` — test dependencies
-- `pytest.ini` — pytest configuration
+- Adding a simple Flask web UI for listing, adding, and borrowing books  
+- Implementing a **Playwright + pytest** browser-based end-to-end (E2E) test  
+- Containerizing the app with **Docker** and publishing the image to **Docker Hub**
 
+---
 
-## A1 → A2 Mapping
+## Project Overview
 
-This A2 **continues** my A1 library project. The original A1 function names are preserved via `a1_compat.py`, which delegates to the class-based `LibraryService` used in A2.
+The web app exposes three main pages:
 
-| A1 function                   | A2 implementation (services.py)                          |
-|------------------------------|-----------------------------------------------------------|
-| `add_book_to_catalog`        | `add_book` / `register_book`                              |
-| `borrow_book_by_patron`      | `checkout_book` (raises on invalid) / `loan_book` (bool)  |
-| `return_book_by_patron`      | `return_book`                                             |
-| `calculate_late_fee_for_book`| Provided in `a1_compat.py` (simple per-day fee)           |
-| `search_books_in_catalog`    | `search_books`                                            |
-| `get_patron_status_report`   | `list_active_loans` (+ direct `users`/`books` access)     |
+- `GET /books` – Library catalog (list of books)  
+- `GET /books/add` – Form to add a new book  
+- `GET /borrow` – Form to borrow an existing book by patron ID  
 
-> A2 adds due dates (via a `Loan` object), a per-user active-loan cap, and overdue detection.  
-> The `a1_compat.py` module keeps A1-style code working without changes.
+Data is stored in a local **SQLite** database (`library.db`). On startup, `app.py` calls `init_db()` to create the database and required tables if they do not already exist.
 
+The main E2E test lives in:
 
-## Quick start
+```text
+tests/test_e2e.py
+It simulates a real user:
+
+1. Add a new book via the web form  
+2. Verify that the book appears in the catalog  
+3. Go to the borrow page  
+4. Borrow the same book with a patron ID  
+5. Verify that a success message appears
+```
+---
+
+## Setup & Installation
+
+### 1. Clone the repo
+
+```bash
+git clone https://github.com/jaineelmodi11/cisc327-library-management-a4-5104.git
+cd cisc327-library-management-a4-5104
+```
+
+---
+### 2. Create virtual environment & install dependencies
+
 ```bash
 python3 -m venv .venv
-source .venv/bin/activate   # Windows: .venv\Scripts\activate
+source .venv/bin/activate        # on macOS / Linux
+python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
-pytest
+
+# Install Playwright browser binaries (one-time)
+playwright install
 ```
 
-## CI/CD
-Every push runs GitHub Actions:
-- installs deps,
-- runs tests with coverage,
-- uploads `coverage.xml` as an artifact.
+## Running the Flask App (without Docker)
 
-The badge above shows the latest workflow status.
+Start the app:
 
-## Run with coverage locally (optional)
 ```bash
-pytest --cov=. --cov-report=term
+cd cisc327-library-management-a4-5104
+source .venv/bin/activate
+python app.py
 ```
 
-## Troubleshooting
-- If `pytest` can’t find modules, ensure you’re running from the repo root and that `pytest.ini` has `pythonpath = .`.
-- If a virtualenv folder shows up in Git, add `.venv/` to `.gitignore`.
+Flask will start on port **5000**. You can access:
+
+- Catalog: `http://localhost:5000/books`  
+- Add book: `http://localhost:5000/books/add`  
+- Borrow book: `http://localhost:5000/borrow`
+
+---
+
+## Running the E2E Tests
+
+**Important:** Before running pytest, start the Flask app in a separate terminal with:
+
+```bash
+cd cisc327-library-management-a4-5104
+source .venv/bin/activate
+python app.py
+```
+
+Then, in a second terminal:
+
+```bash
+cd cisc327-library-management-a4-5104
+source .venv/bin/activate
+pytest tests/test_e2e.py -v
+```
+
+The main test is:
+
+```text
+tests/test_e2e.py::test_add_and_borrow_book_flow
+```
+
+It exercises the full add → verify → borrow → verify flow in a real Chromium browser (headless).
+
+---
+
+## Docker Containerization
+
+The app is containerized using the `python:3.11-slim` base image. The `Dockerfile`:
+
+- Sets the working directory to `/app`
+- Installs minimal system packages and Python dependencies from `requirements.txt`
+- Copies the application source code into the image
+- Sets `FLASK_APP=app:app`, `FLASK_RUN_HOST=0.0.0.0`, `FLASK_RUN_PORT=5000`
+- Exposes port **5000**
+- Runs `flask run` as the container command
+
+### Build the image
+
+```bash
+docker build -t library-app .
+```
+
+```bash
+docker run -p 5000:5000 library-app
+```
+
+Then open:
+
+http://localhost:5000/books
+
+You should be able to add and borrow books through the UI running inside the container.
+
+---
+
+## Docker Hub Image
+
+The image is also published to Docker Hub under my account:
+
+```bash
+docker tag library-app jaineelmodi1122222/library-app:v1
+docker login
+docker push jaineelmodi1122222/library-app:v1
+```
+
+Anyone with Docker can run:
+
+```bash
+docker pull jaineelmodi1122222/library-app:v1
+docker run -p 5000:5000 jaineelmodi1122222/library-app:v1
+```
+
+and use the app at http://localhost:5000/books without needing Python or Playwright installed locally.
+
+
+
+# CISC/CMPE-327 – Library Management System (Assignment 4)
+
+This repository contains my **Assignment 4 – End-to-End Testing and Application Containerization** for CISC/CMPE-327 (Software Quality Assurance).
+
+It extends the Library Management System from previous labs/assignments by:
+
+- Adding a simple Flask web UI for listing, adding, and borrowing books  
+- Implementing a **Playwright + pytest** browser-based end-to-end (E2E) test  
+- Containerizing the app with **Docker** and publishing the image to **Docker Hub**
+
+---
+
+## Project Overview
+
+The web app exposes three main pages:
+
+- `GET /books` – Library catalog (list of books)  
+- `GET /books/add` – Form to add a new book  
+- `GET /borrow` – Form to borrow an existing book by patron ID  
+
+Data is stored in a local **SQLite** database (`library.db`). On startup, `app.py` calls `init_db()` to create the database and required tables if they do not already exist.
+
+The main E2E test lives in:
+
+```text
+tests/test_e2e.py
+It simulates a real user:
+
+1. Add a new book via the web form  
+2. Verify that the book appears in the catalog  
+3. Go to the borrow page  
+4. Borrow the same book with a patron ID  
+5. Verify that a success message appears
+```
+---
+
+## Setup & Installation
+
+### 1. Clone the repo
+
+```bash
+git clone https://github.com/jaineelmodi11/cisc327-library-management-a4-5104.git
+cd cisc327-library-management-a4-5104
+```
+
+---
+### 2. Create virtual environment & install dependencies
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate        # on macOS / Linux
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+
+# Install Playwright browser binaries (one-time)
+playwright install
+```
+
+## Running the Flask App (without Docker)
+
+Start the app:
+
+```bash
+cd cisc327-library-management-a4-5104
+source .venv/bin/activate
+python app.py
+```
+
+Flask will start on port **5000**. You can access:
+
+- Catalog: `http://localhost:5000/books`  
+- Add book: `http://localhost:5000/books/add`  
+- Borrow book: `http://localhost:5000/borrow`
+
+---
+
+## Running the E2E Tests
+
+**Important:** Before running pytest, start the Flask app in a separate terminal with:
+
+```bash
+cd cisc327-library-management-a4-5104
+source .venv/bin/activate
+python app.py
+```
+
+Then, in a second terminal:
+
+```bash
+cd cisc327-library-management-a4-5104
+source .venv/bin/activate
+pytest tests/test_e2e.py -v
+```
+
+The main test is:
+
+```text
+tests/test_e2e.py::test_add_and_borrow_book_flow
+```
+
+It exercises the full add → verify → borrow → verify flow in a real Chromium browser (headless).
+
+---
+
+## Docker Containerization
+
+The app is containerized using the `python:3.11-slim` base image. The `Dockerfile`:
+
+- Sets the working directory to `/app`
+- Installs minimal system packages and Python dependencies from `requirements.txt`
+- Copies the application source code into the image
+- Sets `FLASK_APP=app:app`, `FLASK_RUN_HOST=0.0.0.0`, `FLASK_RUN_PORT=5000`
+- Exposes port **5000**
+- Runs `flask run` as the container command
+
+### Build the image
+
+```bash
+docker build -t library-app .
+```
+
+```bash
+docker run -p 5000:5000 library-app
+```
+
+Then open:
+
+http://localhost:5000/books
+
+You should be able to add and borrow books through the UI running inside the container.
+
+---
+
+## Docker Hub Image
+
+The image is also published to Docker Hub under my account:
+
+```bash
+docker tag library-app jaineelmodi1122222/library-app:v1
+docker login
+docker push jaineelmodi1122222/library-app:v1
+```
+
+Anyone with Docker can run:
+
+```bash
+docker pull jaineelmodi1122222/library-app:v1
+docker run -p 5000:5000 jaineelmodi1122222/library-app:v1
+```
+
+and use the app at http://localhost:5000/books without needing Python or Playwright installed locally.
