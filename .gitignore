@@ -1,12 +1,13 @@
-# venvs
-.venv/
-venv/
-
-# pytest / coverage
-.pytest_cache/
+# Python
 __pycache__/
-.coverage*
-coverage.xml
+*.pyc
 
-# OS/editor junk
-.DS_Store
+# Virtual environments
+.venv/
+
+# SQLite database
+library.db
+
+# Playwright
+playwright-report/
+test-results/
